@@ -14,8 +14,10 @@
 
 #define DEBUG 1
 
-//compare match register = [ 16,000,000Hz/ (prescaler * desired interrupt frequency) ] - 1
 #define DISPLAY_UPDATE_F 500
+//compare match register count = [ F_CPU / (prescaler * desired interrupt frequency) ] - 1
+// c = F_CPU / (8*DISPLAY_UPDATE_F) = 4000
+#define TIMER1_COMPARE_COUNT 4000
 
 //PINS
 //const int modeButtonPin = 3;
@@ -96,19 +98,15 @@ void setup()  {
     
   cstate = HOURMINUTE_DISPLAY;
    
-  //setup timer1 to call nx.spinOnce @ DISPLAY_UPDATE_F Hz
+  //setup timer1 to call nx.display @ DISPLAY_UPDATE_F Hz
   cli();//stop interrupts 
-  //set timer1 at 200hz
-  //set timer1 interrupt at 1Hz
   TCCR1A = 0;// set entire TCCR1A register to 0
   TCCR1B = 0;// same for TCCR1B
   TCNT1  = 0;//initialize counter value to 0
-  // set compare match register for 1hz increments
-  OCR1A = round((float)F_CPU/((float)(8*DISPLAY_UPDATE_F))-1);
+  OCR1A = TIMER1_COMPARE_COUNT;
   // turn on CTC mode
   TCCR1B |= (1 << WGM12);
-  // Set CS12 and CS10 bits for 1024 prescaler
-  //TCCR1B |= (1 << CS12) | (1 << CS10);  
+  //set prescaler to 8
   TCCR1B |= (1 << CS11);  
   // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
