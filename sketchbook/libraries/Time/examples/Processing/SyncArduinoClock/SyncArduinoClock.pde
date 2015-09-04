@@ -15,72 +15,48 @@ import processing.serial.*;
 import java.util.Date;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import controlP5.*;
 
-
+public static final short portIndex = 0;  // select the com port, 0 is the first port
 public static final String TIME_HEADER = "T"; //header for arduino serial time message 
 public static final char TIME_REQUEST = 7;  // ASCII bell character 
 public static final char LF = 10;     // ASCII linefeed
 public static final char CR = 13;     // ASCII linefeed
-short portIndex = 0;  // select the com port, 0 is the first port
 Serial myPort;     // Create object from Serial class
 
-ControlP5 controlP5;
-DropdownList l;
-Button b;
-
 void setup() {  
-  size(140,160);
-  controlP5 = new ControlP5(this);
-  l = controlP5.addDropdownList("serialList")
-         .setPosition(10, 50)
-         .setSize(120, 100)
-         .setItemHeight(15)
-         .setBarHeight(15)
-         .setColorBackground(color(255, 128))
-         .setColorActive(color(0))
-         .setColorForeground(color(255, 100,0))
-         ;
-  l.captionLabel().toUpperCase(true);
-  l.captionLabel().set("Puerto serie");
-  l.captionLabel().setColor(0xffff0000);
-  l.captionLabel().style().marginTop = 3;
-  l.valueLabel().style().marginTop = 3;
-  
-  for(int i=0;i<Serial.list().length;i++) {
-    ListBoxItem lbi = l.addItem(Serial.list()[i],i);
-    lbi.setColorBackground(0xffff0000);
-  }
-  
-  b = controlP5.addButton("sync")
-               .setPosition(10,10)
-               .setSize(120,20)
-               ;
-  b.captionLabel().set("Sincronizar hora");
+  size(200, 200);
+  println(Serial.list());
+  println(" Connecting to -> " + Serial.list()[portIndex]);
+  myPort = new Serial(this,Serial.list()[portIndex], 9600);
+  println(getTimeNow());
 }
 
 void draw()
 {
-  background(128);
+  textSize(20);
+  textAlign(CENTER);
+  fill(0);
+  text("Click to send\nTime Sync", 0, 75, 200, 175);
+  if ( myPort.available() > 0) {  // If data is available,
+    char val = char(myPort.read());         // read it and store it in val
+    if(val == TIME_REQUEST){
+       long t = getTimeNow();
+       sendTimeMessage(TIME_HEADER, t);   
+    }
+    else
+    { 
+       if(val == LF)
+           ; //igonore
+       else if(val == CR)           
+         println();
+       else  
+         print(val); // echo everying but time request
+    }
+  }  
 }
 
-public void controlEvent(ControlEvent theEvent) {
-  if (theEvent.isGroup()) {//dropdownlist
-    // check if the Event was triggered from a ControlGroup
-    //println("event from group : "+theEvent.getGroup().getValue()+" from "+theEvent.getGroup());
-    portIndex = (short)theEvent.getGroup().getValue();
-    if (myPort != null) 
-      myPort.stop();
-    println("Conectando a -> " + Serial.list()[portIndex]);
-    myPort = new Serial(this,Serial.list()[portIndex], 9600);
-  } 
-  else if (theEvent.isController()) {//button
-    //println("event from controller : "+theEvent.getController().getValue()+" from "+theEvent.getController());
-    long t = getTimeNow();
-    println("Enviando nuevo tiempo: " + t);
-    if (myPort != null)
-      sendTimeMessage(TIME_HEADER,getTimeNow());
-  }
+void mousePressed() {  
+  sendTimeMessage( TIME_HEADER, getTimeNow());   
 }
 
 

@@ -30,50 +30,57 @@
 #ifndef ButtonEvent_h
 #define ButtonEvent_h
 
-#include <stdlib.h>
-
-#if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
-#else
-#include "WProgram.h"
-#endif
+//#include <stdlib.h>
+#include <Bounce.h>
 
-struct ButtonInformation {
-  short pin;
-  bool pressed;
-  bool hold;
-  unsigned long startMillis;
-  unsigned long holdMillis;
+  
+
+struct Button {
+  enum ButtonState {
+    BUTTON_INIT,
+    BUTTON_PRESSED,
+    BUTTON_HOLD,
+    BUTTON_MAXSTATE,
+  };
+
+  enum ButtonConfig {
+    ACTIVE_LOW = 0x00,
+    ACTIVE_HIGH = 0x01
+  };
+
+  Button(const int pin_,
+	 const unsigned long debounceIntervalMillis_ = 10,
+	 void (*onDown_)(Button* Sender) = 0,
+	 void (*onUp_)(Button* Sender) = 0,
+	 void (*onHold_)(Button* Sender) = 0,
+	 const unsigned long holdMillisWait_ = 1000,
+	 const ButtonConfig cfg_ = ACTIVE_HIGH );
+  const int pin;
+  void (* const onDown)(Button* Sender);
+  void (* const onUp)(Button* Sender);
+  void (* const onHold)(Button* Sender);
   unsigned long holdMillisWait;
-  unsigned long doubleMillis;
-  unsigned long doubleMillisWait;
-  void (*onDown)(ButtonInformation* Sender);
-  void (*onUp)(ButtonInformation* Sender);
-  void (*onHold)(ButtonInformation* Sender);
-  void (*onDouble)(ButtonInformation* Sender);
+  //button state
+  Bounce buttonB;
+  ButtonState buttonState;
+  ButtonConfig cfg;
+  unsigned long startMillis;
 };
 
 class ButtonEventClass
 {
 public:
-  ButtonEventClass();
-  short initialCapacity;
-  void addButton(short pin, void (*onDown)(ButtonInformation* Sender), void (*onUp)(ButtonInformation* Sender), void (*onHold)(ButtonInformation* Sender), unsigned long holdMillisWait, void (*onDouble)(ButtonInformation* Sender), unsigned long doubleMillisWait);
-  void loop();
+  ButtonEventClass(const unsigned int maxNButtons_ = 8);
+  ButtonEventClass& addButton(Button* button_p);
+  void spinOnce();
 	
 private:
-  bool nextPressed;
-  short nextAnalogRead;
-  short count;
-  short mallocSize;
-  short index;
-  unsigned long lastMillis;
-  ButtonInformation* buttons;
-  ButtonInformation* currentButton;
-  void setPosition(short Position);
+  const unsigned int maxNButtons;
+  unsigned int nButtons;
+  Button** buttons;
 };
 
-//global instance
-extern ButtonEventClass ButtonEvent;
+
 
 #endif
