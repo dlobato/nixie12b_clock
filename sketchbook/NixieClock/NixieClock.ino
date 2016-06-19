@@ -2,7 +2,7 @@
  * NixieClock main
  */
 
-#include <Time.h>  
+#include <Time.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
@@ -70,7 +70,7 @@ TimedAction input_task(100, input_task_f);
 
 void set_timer1(float timer_freq){
   //setup timer1 to call nx.display @ DISPLAY_UPDATE_F Hz
-  cli();//stop interrupts 
+  cli();//stop interrupts
   TCCR1A = 0;// set entire TCCR1A register to 0
   TCCR1B = 0;// same for TCCR1B
   TCNT1  = 0;//initialize counter value to 0
@@ -78,7 +78,7 @@ void set_timer1(float timer_freq){
   // turn on CTC mode
   TCCR1B |= (1 << WGM12);
   //set prescaler to 8
-  TCCR1B |= (1 << CS12);  
+  TCCR1B |= (1 << CS12);
   // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
   sei();//allow interrupts
@@ -99,14 +99,17 @@ void onUp(Button* Sender){
 }
 
 void setup()  {
+  Serial.begin(9600);
+  while (!Serial) ; // wait until Arduino Serial Monitor opens
+
   setSyncProvider(RTC.get);   // the function to get the time from the RTC
   if (timeStatus() != timeSet)
     Serial.println("Unable to sync with the RTC");
   else
     Serial.println("RTC has set the system time");
-   
+
   set_timer1(FREQS[fstate]);
-  
+
   //set pin modes
   pinMode(BUTTON0_PIN, INPUT);
   pinMode(BUTTON1_PIN, INPUT);
@@ -115,10 +118,7 @@ void setup()  {
   buttonEvent
     .addButton(&modeButton)
     .addButton(&setButton);
-  
-  
-  Serial.begin(9600);
-  while (!Serial) ; // wait until Arduino Serial Monitor opens
+
   Serial.println("NixieClock setup done");
 }
 
@@ -135,7 +135,7 @@ void display_task_f(){
   time_t t = now();
   char elemValues[ELEMENUMMAX];
   ElemState elemState[ELEMENUMMAX];
-  
+
   if (cstate == HOURMINUTE_DISPLAY){
     elemValues[DIGIT0] = minute(t)%10; (second(t)<55)?elemState[DIGIT0] = ON: elemState[DIGIT0] = BLINK;
     elemValues[DIGIT1] = minute(t)/10; elemState[DIGIT1] = ON;
@@ -168,10 +168,10 @@ void display_task_f(){
       sinceDisplayChange = 0;
     }
   }
-  
+
   for (unsigned int i=0; i<ELEMENUMMAX; i++)
     nx.setElem(static_cast<ElemEnum>(i), elemValues[i], elemState[i]);
-    
+
 }
 
 void serial_task_f(){
@@ -179,7 +179,7 @@ void serial_task_f(){
     time_t t = processSyncMessage();
     if (t != 0) {
       RTC.set(t);   // set the RTC and the system time to the received value
-      setTime(t);          
+      setTime(t);
     }
   }
 }
@@ -194,7 +194,7 @@ void input_task_f(){
 
 unsigned long processSyncMessage() {
   unsigned long pctime = 0L;
-  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013 
+  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
 
   if(Serial.find(TIME_HEADER)) {
      pctime = Serial.parseInt();
