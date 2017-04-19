@@ -9,10 +9,11 @@
 #include <Bounce.h>
 #include <ButtonEvent.h>
 #include "NixieDisplay.h"
+#include "ClockState.h"
 #include "TimedAction.h"
 #include "elapsedMillis.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define DISPLAY_UPDATE_F 2
 //compare match register count = [ F_CPU / (prescaler * desired interrupt frequency) ] - 1
@@ -22,6 +23,10 @@
 //PINS
 const unsigned int BUTTON0_PIN = 3;
 const unsigned int BUTTON1_PIN = 4;
+
+//button handlers forward declarations
+void onUp(Button* Sender);
+void onHold(Button* Sender);
 
 Button modeButton(BUTTON0_PIN, 10, 0, onUp, 0, 1000, Button::ACTIVE_HIGH);
 Button setButton(BUTTON1_PIN, 10, 0, onUp, onHold, 1000, Button::ACTIVE_HIGH);
@@ -37,13 +42,11 @@ enum FreqState{
 
 const unsigned int FREQS[FREQ_MAXSTATE] = { 25, 50, 100, 250 };
 
-ClockState cstate = HOURMINUTE_DISPLAY;
+ClockState cstate;
 FreqState fstate = FREQ_250HZ;
 NixieDisplay nx;
 
-const unsigned long showTimeDelayMS = 30000;
-const unsigned long showDayMonthDelayMS = 5000;
-const unsigned long showYearDelayMS = 5000;
+const unsigned long displayChangeTimeDelayMS = 5000;
 elapsedMillis sinceDisplayChange;
 
 void display_task_f();
@@ -80,8 +83,9 @@ void onUp(Button* Sender){
   Serial.println(Sender->buttonState);
 #endif
   if (Sender == &setButton){
-    fstate = (FreqState)((fstate+1) % FREQ_MAXSTATE);
-    set_timer1(FREQS[fstate]);
+    cstate.processEvent(ClockState::SET_BUTTON_UP);
+  }else if (Sender == &modeButton){
+    cstate.processEvent(ClockState::MODE_BUTTON_UP);
   }
 }
 
@@ -93,7 +97,7 @@ void onHold(Button* Sender){
     Serial.println(Sender->buttonState);
   #endif
   if (Sender == &setButton){
-    cstate = MINUTE_SET;
+    cstate.processEvent(ClockState::SET_BUTTON_HOLD);
   }
 }
 
@@ -126,51 +130,22 @@ void setup()  {
 void loop()
 {
   display_task.check();
-  serial_task.check();
+  //serial_task.check();
   input_task.check();
 }
 
 void display_task_f(){
-  time_t t = now();
-  char elemValues[ELEMENUMMAX];
-  ElemState elemState[ELEMENUMMAX];
-
-  if (cstate == HOURMINUTE_DISPLAY){
-    elemValues[DIGIT0] = minute(t)%10; (second(t)<55)?elemState[DIGIT0] = ON: elemState[DIGIT0] = BLINK;
-    elemValues[DIGIT1] = minute(t)/10; elemState[DIGIT1] = ON;
-    elemValues[DIGIT2] = hour(t)%10; elemState[DIGIT2] = ON;
-    elemValues[DIGIT3] = hour(t)/10; elemState[DIGIT3] = ON;
-    elemValues[DP] = 0; elemState[DP] = BLINK;
-    if (sinceDisplayChange >= showTimeDelayMS){
-      cstate = DAYMONTH_DISPLAY;
-      sinceDisplayChange = 0;
-    }
-  }else if (cstate == DAYMONTH_DISPLAY){
-    elemValues[DIGIT0] = month(t)%10; elemState[DIGIT0] = ON;
-    elemValues[DIGIT1] = month(t)/10; elemState[DIGIT1] = ON;
-    elemValues[DIGIT2] = day(t)%10; elemState[DIGIT2] = ON;
-    elemValues[DIGIT3] = day(t)/10; elemState[DIGIT3] = ON;
-    elemValues[DP] = 0; elemState[DP] = OFF;
-    if (sinceDisplayChange >= showDayMonthDelayMS){
-      cstate = YEAR_DISPLAY;
-      sinceDisplayChange = 0;
-    }
-  }else if (cstate == YEAR_DISPLAY){
-    int y = year(t);
-    for (int i=0; i<4; i++){
-      elemValues[i] = y % 10; elemState[i] = ON;
-      y /= 10;
-    }
-    elemValues[DP] = 0; elemState[DP] = OFF;
-    if (sinceDisplayChange >= showYearDelayMS){
-      cstate = HOURMINUTE_DISPLAY;
-      sinceDisplayChange = 0;
-    }
+  if (sinceDisplayChange >= displayChangeTimeDelayMS){
+    cstate.processEvent(ClockState::TIMER_DISPLAY_NEXT);
+    sinceDisplayChange = 0;
   }
 
-  for (unsigned int i=0; i<ELEMENUMMAX; i++)
-    nx.setElem(static_cast<ElemEnum>(i), elemValues[i], elemState[i]);
+  cstate.processEvent(ClockState::NOEVENT);
 
+  for (unsigned int i=0; i<NixieDisplay::ELEMENUMMAX; i++){
+    NixieDisplay::ElemEnum e = static_cast<NixieDisplay::ElemEnum>(i);
+    nx.setElem(e, cstate.getElemValue(e), cstate.getElemState(e));
+  }
 }
 
 void serial_task_f(){
@@ -206,8 +181,8 @@ unsigned long processSyncMessage() {
 
 unsigned int currElem = 0;
 ISR(TIMER1_COMPA_vect){
-  nx.display(static_cast<ElemEnum>(currElem));
+  nx.display(static_cast<NixieDisplay::ElemEnum>(currElem));
   //next elem
   currElem++;
-  if (currElem>=ELEMENUMMAX) currElem = 0;
+  if (currElem>=NixieDisplay::ELEMENUMMAX) currElem = 0;
 }

@@ -35,27 +35,27 @@
 
 #define SS 8//latch
 
-enum ElemEnum{
-  DIGIT0,
-  DIGIT1,
-  DIGIT2,
-  DIGIT3,
-  DP,
-  ELEMENUMMAX,
-};
-
-enum ElemState{
-  OFF,
-  ON,
-  BLINK,
-  ELEMSTATEMAX,
-};
-
 #define BLINKFAST_DELAYMS 200
 #define BLINKSLOW_DELAYMS 1000
 
 class NixieDisplay {
 public:
+  enum ElemEnum{
+    DIGIT0,
+    DIGIT1,
+    DIGIT2,
+    DIGIT3,
+    DP,
+    ELEMENUMMAX,
+  };
+
+  enum ElemState{
+    OFF,
+    ON,
+    BLINK,
+    ELEMSTATEMAX,
+  };
+
   NixieDisplay();
   void display(const ElemEnum elem);
   void setElem(const ElemEnum elem, const char value, const ElemState state);
